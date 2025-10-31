@@ -176,16 +176,24 @@ npx drizzle-kit push      # Apply migrations to database
 4. Click **Create**
 
 ### Step 4: Configure RBAC and Permissions
-The application uses Role-Based Access Control (RBAC) to manage user access. By default, authenticated users cannot use the chat feature until they are granted permission.
+The application uses Role-Based Access Control (RBAC) to manage user access. Two permissions control different levels of access:
+- **`api:access`**: Required to access the application at all
+- **`chat:access`**: Required to use the chat feature (in addition to `api:access`)
 
-1. **Add Permission to API**:
+1. **Add Permissions to API**:
    - Go to **Applications → APIs** → Select your API
    - Go to the **Permissions** tab
-   - Click **Add Permission**
-   - Add permission:
+   - Click **Add Permission** and add both permissions:
+
+     **Permission 1:**
+     - **Permission (Scope)**: `api:access`
+     - **Description**: `Access to the Coach Agent application`
+     - Click **Add**
+
+     **Permission 2:**
      - **Permission (Scope)**: `chat:access`
      - **Description**: `Access to chat with the AI coach`
-   - Click **Add**
+     - Click **Add**
 
 2. **Enable RBAC**:
    - While on your API settings, go to the **Settings** tab
@@ -202,23 +210,23 @@ The application uses Role-Based Access Control (RBAC) to manage user access. By 
    - Select a user you want to approve
    - Go to the **Permissions** tab
    - Click **Assign Permissions**
-   - Select your API and check `chat:access`
+   - Select your API and check both `api:access` and `chat:access`
    - Click **Add Permissions**
 
    **Option B: Create Roles (Recommended for Multiple Users)**
    - Go to **User Management → Roles**
    - Click **Create Role**
    - Name it `Coach User` (or similar)
-   - Add Description: "Users who can access the coaching chat"
+   - Add Description: "Users who can access the coaching application"
    - Go to the **Permissions** tab
-   - Add the `chat:access` permission from your API
+   - Add both `api:access` and `chat:access` permissions from your API
    - Go to **User Management → Users**
    - Select users and assign them to the "Coach User" role
 
 4. **Test Access Control**:
-   - Users **without** the `chat:access` permission will receive a 403 error when trying to chat
-   - Error message: "You do not have permission to access this resource. Please contact the administrator for approval."
-   - Users **with** the permission can use the chat feature normally
+   - Users **without** `api:access` will see an "Access Denied" page after login
+   - Users **with** `api:access` but **without** `chat:access` will see a 403 error when trying to chat
+   - Users **with** both permissions can use the full application normally
 
 ### Step 5: Update Environment Variables
 Add Auth0 credentials to both frontend and backend `.env` files as shown in the installation section above.
@@ -226,7 +234,8 @@ Add Auth0 credentials to both frontend and backend `.env` files as shown in the 
 ### Important Notes
 - Users must **log out and log back in** after permissions are assigned to receive a new access token with the updated permissions
 - Alternatively, clear browser localStorage/sessionStorage to force re-authentication
-- The permission check is implemented in [backend/src/middleware/auth.ts](backend/src/middleware/auth.ts)
+- **Frontend**: The `api:access` permission check is implemented in [frontend/app/page.tsx](frontend/app/page.tsx) using [frontend/lib/permissions.ts](frontend/lib/permissions.ts)
+- **Backend**: The `chat:access` permission check is implemented in [backend/src/middleware/auth.ts](backend/src/middleware/auth.ts)
 - The `/api/chat/chat` endpoint requires the `chat:access` permission
 
 ## Deployment

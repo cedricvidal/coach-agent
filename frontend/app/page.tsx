@@ -1,15 +1,36 @@
 'use client';
 
 import { useAuth0 } from '@auth0/auth0-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ChatInterface from '@/components/ChatInterface';
 import GoalsList from '@/components/GoalsList';
+import AccessDenied from '@/components/AccessDenied';
+import { hasPermission } from '@/lib/permissions';
 
 export default function Home() {
-  const { isAuthenticated, isLoading, loginWithRedirect, logout, user } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect, logout, user, getAccessTokenSilently } = useAuth0();
   const [activeTab, setActiveTab] = useState<'chat' | 'goals'>('chat');
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
-  if (isLoading) {
+  // Check for api:access permission when authenticated
+  useEffect(() => {
+    async function checkPermissions() {
+      if (isAuthenticated) {
+        try {
+          const token = await getAccessTokenSilently();
+          const hasApiAccess = hasPermission(token, 'api:access');
+          setHasAccess(hasApiAccess);
+        } catch (error) {
+          console.error('Error checking permissions:', error);
+          setHasAccess(false);
+        }
+      }
+    }
+
+    checkPermissions();
+  }, [isAuthenticated, getAccessTokenSilently]);
+
+  if (isLoading || hasAccess === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -37,6 +58,11 @@ export default function Home() {
         </div>
       </div>
     );
+  }
+
+  // Check if user has api:access permission
+  if (!hasAccess) {
+    return <AccessDenied />;
   }
 
   return (
