@@ -1,11 +1,13 @@
+import dotenv from 'dotenv';
+
+// Load environment variables FIRST before any other imports
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { checkJwt } from './middleware/auth.js';
 import chatRouter from './routes/chat.js';
 import goalsRouter from './routes/goals.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
