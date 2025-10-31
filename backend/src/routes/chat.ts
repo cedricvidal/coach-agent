@@ -7,18 +7,44 @@ import { AuthRequest, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
+// Auth0 UserInfo response type
+interface Auth0UserInfo {
+  sub: string;
+  email: string;
+  name?: string;
+  [key: string]: any;
+}
+
+// Fetch user info from Auth0
+async function fetchAuth0UserInfo(accessToken: string): Promise<Auth0UserInfo> {
+  const response = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}/userinfo`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch user info from Auth0');
+  }
+
+  return response.json() as Promise<Auth0UserInfo>;
+}
+
 // Get or create user
-async function getOrCreateUser(auth0Id: string, email: string, name?: string) {
+async function getOrCreateUser(auth0Id: string, accessToken: string) {
   const [existingUser] = await db.select().from(users).where(eq(users.auth0Id, auth0Id));
 
   if (existingUser) {
     return existingUser;
   }
 
+  // Fetch user info from Auth0 if creating new user
+  const userInfo = await fetchAuth0UserInfo(accessToken);
+
   const [newUser] = await db.insert(users).values({
     auth0Id,
-    email,
-    name,
+    email: userInfo.email,
+    name: userInfo.name,
   }).returning();
 
   return newUser;
@@ -28,7 +54,8 @@ async function getOrCreateUser(auth0Id: string, email: string, name?: string) {
 router.get('/conversations', requireAuth, async (req: AuthRequest, res) => {
   try {
     const auth0Id = req.auth!.payload.sub;
-    const user = await getOrCreateUser(auth0Id, req.auth!.payload.email);
+    const accessToken = req.headers.authorization?.replace('Bearer ', '') || '';
+    const user = await getOrCreateUser(auth0Id, accessToken);
 
     const userConversations = await db
       .select()
@@ -48,7 +75,8 @@ router.get('/conversations/:conversationId/messages', requireAuth, async (req: A
   try {
     const { conversationId } = req.params;
     const auth0Id = req.auth!.payload.sub;
-    const user = await getOrCreateUser(auth0Id, req.auth!.payload.email);
+    const accessToken = req.headers.authorization?.replace('Bearer ', '') || '';
+    const user = await getOrCreateUser(auth0Id, accessToken);
 
     // Verify conversation belongs to user
     const [conversation] = await db
@@ -83,7 +111,8 @@ router.post('/chat', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { message, conversationId } = req.body;
     const auth0Id = req.auth!.payload.sub;
-    const user = await getOrCreateUser(auth0Id, req.auth!.payload.email);
+    const accessToken = req.headers.authorization?.replace('Bearer ', '') || '';
+    const user = await getOrCreateUser(auth0Id, accessToken);
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
