@@ -30,7 +30,7 @@ export default function Home() {
     checkPermissions();
   }, [isAuthenticated, getAccessTokenSilently]);
 
-  if (isLoading || hasAccess === null) {
+  if (isLoading || (isAuthenticated && hasAccess === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
