@@ -10,6 +10,9 @@ const router = Router();
 router.get('/', requireAuth, async (req: AuthRequest, res) => {
   try {
     const auth0Id = req.auth!.payload.sub;
+    if (!auth0Id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const [user] = await db.select().from(users).where(eq(users.auth0Id, auth0Id));
 
     if (!user) {
@@ -34,6 +37,9 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { title, description, targetDate } = req.body;
     const auth0Id = req.auth!.payload.sub;
+    if (!auth0Id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const [user] = await db.select().from(users).where(eq(users.auth0Id, auth0Id));
 
     if (!user) {
@@ -65,6 +71,9 @@ router.put('/:goalId', requireAuth, async (req: AuthRequest, res) => {
     const { goalId } = req.params;
     const { title, description, status, targetDate } = req.body;
     const auth0Id = req.auth!.payload.sub;
+    if (!auth0Id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const [user] = await db.select().from(users).where(eq(users.auth0Id, auth0Id));
 
     if (!user) {
@@ -111,6 +120,9 @@ router.post('/:goalId/progress', requireAuth, async (req: AuthRequest, res) => {
     const { goalId } = req.params;
     const { notes, sentiment, metadata } = req.body;
     const auth0Id = req.auth!.payload.sub;
+    if (!auth0Id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const [user] = await db.select().from(users).where(eq(users.auth0Id, auth0Id));
 
     if (!user) {
@@ -155,6 +167,9 @@ router.get('/:goalId/progress', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { goalId } = req.params;
     const auth0Id = req.auth!.payload.sub;
+    if (!auth0Id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const [user] = await db.select().from(users).where(eq(users.auth0Id, auth0Id));
 
     if (!user) {
