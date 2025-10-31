@@ -8,6 +8,7 @@ An AI-powered personal coach application built with Next.js, LangChain.js, and O
 - **Goal Management**: Set, track, and manage personal and professional goals
 - **Progress Tracking**: Record and monitor progress on your goals
 - **Secure Authentication**: Auth0 integration for secure user management
+- **Role-Based Access Control**: User approval system using Auth0 RBAC and permissions
 - **Real-time Chat**: Interactive chat interface with context-aware responses
 - **Persistent Data**: PostgreSQL database with Neon for reliable data storage
 
@@ -151,23 +152,82 @@ npx drizzle-kit push      # Apply migrations to database
 
 ## Auth0 Setup
 
-1. **Create Auth0 Account**
-   - Sign up at [Auth0](https://auth0.com)
+### Step 1: Create Auth0 Account
+- Sign up at [Auth0](https://auth0.com)
 
-2. **Create Application**
-   - Create a new "Single Page Application"
-   - Note your Domain and Client ID
-   - Add `http://localhost:3000` to Allowed Callback URLs
-   - Add `http://localhost:3000` to Allowed Logout URLs
-   - Add `http://localhost:3000` to Allowed Web Origins
+### Step 2: Create Application
+1. Go to **Applications → Applications** in Auth0 Dashboard
+2. Click **Create Application**
+3. Choose **Single Page Application**
+4. Note your **Domain** and **Client ID**
+5. Configure Application Settings:
+   - **Allowed Callback URLs**: `http://localhost:3000`
+   - **Allowed Logout URLs**: `http://localhost:3000`
+   - **Allowed Web Origins**: `http://localhost:3000`
+6. Click **Save Changes**
 
-3. **Create API**
-   - Create a new API in Auth0
-   - Set an identifier (e.g., `https://coach-agent-api`)
-   - This will be your `AUTH0_AUDIENCE`
+### Step 3: Create API
+1. Go to **Applications → APIs** in Auth0 Dashboard
+2. Click **Create API**
+3. Set:
+   - **Name**: Coach Agent API
+   - **Identifier**: `https://coach-agent-api` (this will be your `AUTH0_AUDIENCE`)
+   - **Signing Algorithm**: RS256
+4. Click **Create**
 
-4. **Update Environment Variables**
-   - Add Auth0 credentials to both frontend and backend `.env` files
+### Step 4: Configure RBAC and Permissions
+The application uses Role-Based Access Control (RBAC) to manage user access. By default, authenticated users cannot use the chat feature until they are granted permission.
+
+1. **Add Permission to API**:
+   - Go to **Applications → APIs** → Select your API
+   - Go to the **Permissions** tab
+   - Click **Add Permission**
+   - Add permission:
+     - **Permission (Scope)**: `chat:access`
+     - **Description**: `Access to chat with the AI coach`
+   - Click **Add**
+
+2. **Enable RBAC**:
+   - While on your API settings, go to the **Settings** tab
+   - Scroll to **RBAC Settings**
+   - Enable these toggles:
+     - ✅ **Enable RBAC**
+     - ✅ **Add Permissions in the Access Token**
+   - Click **Save**
+
+3. **Assign Permissions to Users**:
+
+   **Option A: Assign Directly to Users**
+   - Go to **User Management → Users**
+   - Select a user you want to approve
+   - Go to the **Permissions** tab
+   - Click **Assign Permissions**
+   - Select your API and check `chat:access`
+   - Click **Add Permissions**
+
+   **Option B: Create Roles (Recommended for Multiple Users)**
+   - Go to **User Management → Roles**
+   - Click **Create Role**
+   - Name it `Coach User` (or similar)
+   - Add Description: "Users who can access the coaching chat"
+   - Go to the **Permissions** tab
+   - Add the `chat:access` permission from your API
+   - Go to **User Management → Users**
+   - Select users and assign them to the "Coach User" role
+
+4. **Test Access Control**:
+   - Users **without** the `chat:access` permission will receive a 403 error when trying to chat
+   - Error message: "You do not have permission to access this resource. Please contact the administrator for approval."
+   - Users **with** the permission can use the chat feature normally
+
+### Step 5: Update Environment Variables
+Add Auth0 credentials to both frontend and backend `.env` files as shown in the installation section above.
+
+### Important Notes
+- Users must **log out and log back in** after permissions are assigned to receive a new access token with the updated permissions
+- Alternatively, clear browser localStorage/sessionStorage to force re-authentication
+- The permission check is implemented in [backend/src/middleware/auth.ts](backend/src/middleware/auth.ts)
+- The `/api/chat/chat` endpoint requires the `chat:access` permission
 
 ## Deployment
 
@@ -194,17 +254,25 @@ npx drizzle-kit push      # Apply migrations to database
 
 ## API Endpoints
 
+All endpoints require authentication via Auth0 JWT tokens.
+
 ### Chat
-- `GET /api/chat/conversations` - Get all conversations
+- `GET /api/chat/conversations` - Get all conversations for authenticated user
 - `GET /api/chat/conversations/:id/messages` - Get messages for a conversation
-- `POST /api/chat/chat` - Send a message and get AI response
+- `POST /api/chat/chat` - Send a message and get AI response (requires `chat:access` permission)
 
 ### Goals
-- `GET /api/goals` - Get all goals
+- `GET /api/goals` - Get all goals for authenticated user
 - `POST /api/goals` - Create a new goal
 - `PUT /api/goals/:id` - Update a goal
 - `POST /api/goals/:id/progress` - Add progress to a goal
 - `GET /api/goals/:id/progress` - Get progress for a goal
+
+### Authentication
+All API requests must include an `Authorization` header with a valid Auth0 access token:
+```
+Authorization: Bearer <access_token>
+```
 
 ## Development
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { auth } from 'express-oauth2-jwt-bearer';
+import { auth, AuthResult } from 'express-oauth2-jwt-bearer';
 
 // Lazy initialization of Auth0 JWT middleware
 // This ensures environment variables are loaded before creating the auth instance
@@ -20,13 +20,9 @@ export const checkJwt = (req: Request, res: Response, next: NextFunction) => {
   return middleware(req, res, next);
 };
 
+// Extend Request to include auth property with AuthResult
 export interface AuthRequest extends Request {
-  auth?: {
-    payload: {
-      sub: string;
-      [key: string]: any;
-    };
-  };
+  auth?: AuthResult;
 }
 
 export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -34,4 +30,25 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
+};
+
+// Middleware to check for specific permissions
+export const requirePermission = (permission: string) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    const payload = req.auth?.payload;
+    const permissions: string[] = Array.isArray(payload?.permissions)
+      ? payload.permissions
+      : typeof payload?.scope === 'string'
+      ? payload.scope.split(' ')
+      : [];
+
+    if (!permissions.includes(permission)) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You do not have permission to access this resource. Please contact the administrator for approval.'
+      });
+    }
+
+    next();
+  };
 };

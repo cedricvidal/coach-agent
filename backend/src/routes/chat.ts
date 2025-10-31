@@ -3,7 +3,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../database/db.js';
 import { conversations, messages, coachingGoals, progress, users } from '../database/schema.js';
 import { coachAgent } from '../agents/coachAgent.js';
-import { AuthRequest, requireAuth } from '../middleware/auth.js';
+import { AuthRequest, requireAuth, requirePermission } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -53,7 +53,7 @@ async function getOrCreateUser(auth0Id: string, accessToken: string) {
 // Get all conversations for a user
 router.get('/conversations', requireAuth, async (req: AuthRequest, res) => {
   try {
-    const auth0Id = req.auth!.payload.sub;
+    const auth0Id = req.auth!.payload.sub as string;
     const accessToken = req.headers.authorization?.replace('Bearer ', '') || '';
     const user = await getOrCreateUser(auth0Id, accessToken);
 
@@ -74,7 +74,7 @@ router.get('/conversations', requireAuth, async (req: AuthRequest, res) => {
 router.get('/conversations/:conversationId/messages', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { conversationId } = req.params;
-    const auth0Id = req.auth!.payload.sub;
+    const auth0Id = req.auth!.payload.sub as string;
     const accessToken = req.headers.authorization?.replace('Bearer ', '') || '';
     const user = await getOrCreateUser(auth0Id, accessToken);
 
@@ -107,10 +107,10 @@ router.get('/conversations/:conversationId/messages', requireAuth, async (req: A
 });
 
 // Send a message and get AI response
-router.post('/chat', requireAuth, async (req: AuthRequest, res) => {
+router.post('/chat', requireAuth, requirePermission('chat:access'), async (req: AuthRequest, res) => {
   try {
     const { message, conversationId } = req.body;
-    const auth0Id = req.auth!.payload.sub;
+    const auth0Id = req.auth!.payload.sub as string;
     const accessToken = req.headers.authorization?.replace('Bearer ', '') || '';
     const user = await getOrCreateUser(auth0Id, accessToken);
 
