@@ -115,14 +115,53 @@ export async function POST(request: NextRequest) {
       history.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
     );
 
-    // Get AI response with context
-    const aiResponse = await coachAgent.chatWithContext(
+    // Create callbacks for goal management tools
+    const goalCallbacks = {
+      createGoal: async (title: string, description?: string, targetDate?: string) => {
+        const [newGoal] = await db.insert(coachingGoals).values({
+          userId: user.id,
+          title,
+          description,
+          targetDate: targetDate ? new Date(targetDate) : undefined,
+          status: 'active',
+        }).returning();
+        return newGoal;
+      },
+      updateGoal: async (goalId: string, updates: { title?: string; description?: string; status?: string; targetDate?: string }) => {
+        const updateData: Record<string, unknown> = {};
+        if (updates.title) updateData.title = updates.title;
+        if (updates.description) updateData.description = updates.description;
+        if (updates.status) updateData.status = updates.status;
+        if (updates.targetDate) updateData.targetDate = new Date(updates.targetDate);
+
+        const [updatedGoal] = await db.update(coachingGoals)
+          .set(updateData)
+          .where(and(
+            eq(coachingGoals.id, goalId),
+            eq(coachingGoals.userId, user.id)
+          ))
+          .returning();
+        return updatedGoal;
+      },
+      addProgress: async (goalId: string, notes: string, sentiment?: string) => {
+        await db.insert(progress).values({
+          goalId,
+          notes,
+          sentiment,
+        });
+        return { success: true };
+      },
+    };
+
+    // Get AI response with context and tools
+    const aiResponse = await coachAgent.chatWithTools(
       message,
       chatHistory,
       {
         goals: userGoals,
         recentProgress,
-      }
+      },
+      goalCallbacks
     );
 
     // Save AI response
