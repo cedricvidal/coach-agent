@@ -20,12 +20,6 @@ export const setAuthToken = (token: string) => {
   }
 };
 
-// Chat API
-export const sendMessage = async (message: string, conversationId?: string) => {
-  const response = await api.post('/api/chat', { message, conversationId });
-  return response.data;
-};
-
 // Streaming chat API - returns an async generator for Server-Sent Events
 export async function* sendMessageStream(
   message: string,

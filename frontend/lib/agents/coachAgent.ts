@@ -162,118 +162,6 @@ export class CoachAgent {
     return [createGoalTool, updateGoalTool, addProgressTool, listGoalsTool];
   }
 
-  async chat(input: string, chatHistory: BaseMessage[] = []): Promise<string> {
-    const chain = RunnableSequence.from([
-      this.prompt,
-      this.model,
-    ]);
-
-    const response = await chain.invoke({
-      input,
-      chat_history: chatHistory,
-    });
-
-    return response.content as string;
-  }
-
-  async chatWithContext(
-    input: string,
-    chatHistory: BaseMessage[] = [],
-    userContext?: { goals?: any[]; recentProgress?: any[] }
-  ): Promise<string> {
-    let enhancedHistory = [...chatHistory];
-
-    // Add context about active goals if available
-    if (userContext?.goals && userContext.goals.length > 0) {
-      const goalsContext = `Active goals:\n${userContext.goals.map((g) => `- ${g.title}: ${g.description || 'No description'}`).join('\n')}`;
-      enhancedHistory.unshift(new SystemMessage(goalsContext));
-    }
-
-    // Add recent progress if available
-    if (userContext?.recentProgress && userContext.recentProgress.length > 0) {
-      const progressContext = `Recent progress:\n${userContext.recentProgress.map((p) => `- ${p.notes}`).join('\n')}`;
-      enhancedHistory.unshift(new SystemMessage(progressContext));
-    }
-
-    return this.chat(input, enhancedHistory);
-  }
-
-  async chatWithTools(
-    input: string,
-    chatHistory: BaseMessage[] = [],
-    userContext: { goals?: Goal[]; recentProgress?: Array<{ notes: string }> },
-    callbacks: GoalManagementCallbacks
-  ): Promise<string> {
-    let enhancedHistory = [...chatHistory];
-
-    // Add context about active goals if available
-    if (userContext?.goals && userContext.goals.length > 0) {
-      const goalsContext = `Active goals:\n${userContext.goals.map((g) => `- [ID: ${g.id}] ${g.title}: ${g.description || 'No description'} (Status: ${g.status || 'active'})`).join('\n')}`;
-      enhancedHistory.unshift(new SystemMessage(goalsContext));
-    }
-
-    // Add recent progress if available
-    if (userContext?.recentProgress && userContext.recentProgress.length > 0) {
-      const progressContext = `Recent progress:\n${userContext.recentProgress.map((p) => `- ${p.notes}`).join('\n')}`;
-      enhancedHistory.unshift(new SystemMessage(progressContext));
-    }
-
-    // Create tools with callbacks
-    const tools = this.createTools(callbacks);
-
-    // Bind tools to the model using bindTools
-    const modelWithTools = this.model.bindTools(tools);
-
-    // Create chain with tools
-    const chain = RunnableSequence.from([
-      this.prompt,
-      modelWithTools,
-    ]);
-
-    const response = await chain.invoke({
-      input,
-      chat_history: enhancedHistory,
-    });
-
-    // Check if there are tool calls in the response - implement agentic loop
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      const toolMessages = [];
-
-      for (const toolCall of response.tool_calls) {
-        // Execute the tool
-        const tool = tools.find(t => t.name === toolCall.name);
-        if (tool) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const result = await tool.func(toolCall.args as any);
-          toolMessages.push({
-            tool_call_id: toolCall.id || toolCall.name,
-            name: toolCall.name,
-            content: result,
-          });
-        }
-      }
-
-      // Invoke the model again with tool results to get the final response
-      const followUpHistory = [
-        ...enhancedHistory,
-        new HumanMessage(input),
-        new AIMessage({
-          content: response.content || '',
-          tool_calls: response.tool_calls,
-        }),
-        // Add tool results as system messages
-        ...toolMessages.map(tm => new SystemMessage(`Tool ${tm.name} result: ${tm.content}`)),
-      ];
-
-      const finalResponse = await this.model.invoke(followUpHistory);
-      return typeof finalResponse.content === 'string'
-        ? finalResponse.content
-        : JSON.stringify(finalResponse.content);
-    }
-
-    return response.content as string;
-  }
-
   async *chatWithToolsStream(
     input: string,
     chatHistory: BaseMessage[] = [],
@@ -329,7 +217,8 @@ export class CoachAgent {
         // Execute the tool
         const tool = tools.find(t => t.name === toolCall.name);
         if (tool) {
-          const result = await tool.func(toolCall.args);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const result = await tool.func(toolCall.args as any);
 
           // Emit tool result event
           yield {
