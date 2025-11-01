@@ -277,6 +277,9 @@ export class CoachAgent {
 
     // Check if there are tool calls in the response
     if (response.tool_calls && response.tool_calls.length > 0) {
+      // Collect tool results to add to message history
+      const toolMessages = [];
+
       for (const toolCall of response.tool_calls) {
         // Emit tool call event
         yield {
@@ -300,20 +303,50 @@ export class CoachAgent {
               result,
             },
           };
+
+          toolMessages.push({
+            tool_call_id: toolCall.id || toolCall.name,
+            name: toolCall.name,
+            content: result,
+          });
         }
       }
-    }
 
-    // Emit content
-    if (response.content) {
-      const content = typeof response.content === 'string'
-        ? response.content
-        : JSON.stringify(response.content);
+      // Now invoke the model again with tool results to get the final response
+      const followUpHistory = [
+        ...enhancedHistory,
+        new HumanMessage(input),
+        new AIMessage({
+          content: response.content || '',
+          tool_calls: response.tool_calls,
+        }),
+        // Add tool results as system messages
+        ...toolMessages.map(tm => new SystemMessage(`Tool ${tm.name} result: ${tm.content}`)),
+      ];
+
+      const finalResponse = await this.model.invoke(followUpHistory);
+
+      // Emit the final content
+      const content = typeof finalResponse.content === 'string'
+        ? finalResponse.content
+        : JSON.stringify(finalResponse.content);
 
       yield {
         type: 'content',
         data: content,
       };
+    } else {
+      // No tools called, emit content directly
+      if (response.content) {
+        const content = typeof response.content === 'string'
+          ? response.content
+          : JSON.stringify(response.content);
+
+        yield {
+          type: 'content',
+          data: content,
+        };
+      }
     }
 
     // Emit done
