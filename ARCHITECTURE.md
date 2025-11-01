@@ -6,7 +6,7 @@ This project has been consolidated into a single Next.js deployment with clear s
 
 ```
 coach-agent/
-├── frontend/                    # Single Next.js application
+├── frontend/                    # Self-sufficient Next.js application
 │   ├── app/
 │   │   ├── page.tsx            # FRONTEND: Main UI page
 │   │   ├── layout.tsx          # FRONTEND: Root layout
@@ -33,9 +33,11 @@ coach-agent/
 │   │   └── agents/             # BACKEND: LangChain AI agents
 │   │       └── coachAgent.ts
 │   ├── package.json            # All dependencies (frontend + backend)
-│   └── drizzle.config.ts       # BACKEND: Database configuration
-├── backend/                    # Legacy (can be removed after migration verified)
-└── vercel.json                 # Deployment configuration
+│   ├── drizzle.config.ts       # BACKEND: Database configuration
+│   └── .env.local              # All environment variables (frontend + backend)
+├── package.json                # Root workspace config
+├── ARCHITECTURE.md             # This file
+└── ENV_SETUP.md                # Environment variables setup guide
 ```
 
 ## API Routes (Backend)
@@ -61,15 +63,29 @@ All backend functionality is exposed as Next.js API routes under `/api/*`:
 
 ## Deployment
 
-Single deployment to Vercel:
+### Vercel Deployment
+
+The `frontend/` directory is a **self-sufficient Next.js application**. Deploy it to Vercel:
+
+1. **Connect your repo** to Vercel
+2. **Set Root Directory** to `frontend` in project settings
+3. Vercel will auto-detect Next.js and configure build settings
+4. **Add all environment variables** (see ENV_SETUP.md)
+
+No custom `vercel.json` needed - Vercel automatically handles Next.js apps.
+
+### What gets deployed:
 - Frontend: Next.js pages and components
-- Backend: Next.js API routes
+- Backend: Next.js API routes (as serverless functions)
 - Database: Neon PostgreSQL
 - Auth: Auth0
 
 ## Environment Variables
 
-Required for both frontend and backend functionality:
-- `AUTH0_*` - Auth0 configuration
+See [ENV_SETUP.md](ENV_SETUP.md) for complete setup instructions.
+
+Required variables in `frontend/.env.local` and Vercel:
+- `NEXT_PUBLIC_AUTH0_*` - Frontend Auth0 config
+- `AUTH0_*` - Backend Auth0 config
 - `DATABASE_URL` - Neon PostgreSQL connection
 - `OPENAI_API_KEY` - OpenAI API key for LangChain
