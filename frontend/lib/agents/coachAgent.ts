@@ -235,6 +235,42 @@ export class CoachAgent {
       chat_history: enhancedHistory,
     });
 
+    // Check if there are tool calls in the response - implement agentic loop
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      const toolMessages = [];
+
+      for (const toolCall of response.tool_calls) {
+        // Execute the tool
+        const tool = tools.find(t => t.name === toolCall.name);
+        if (tool) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const result = await tool.func(toolCall.args as any);
+          toolMessages.push({
+            tool_call_id: toolCall.id || toolCall.name,
+            name: toolCall.name,
+            content: result,
+          });
+        }
+      }
+
+      // Invoke the model again with tool results to get the final response
+      const followUpHistory = [
+        ...enhancedHistory,
+        new HumanMessage(input),
+        new AIMessage({
+          content: response.content || '',
+          tool_calls: response.tool_calls,
+        }),
+        // Add tool results as system messages
+        ...toolMessages.map(tm => new SystemMessage(`Tool ${tm.name} result: ${tm.content}`)),
+      ];
+
+      const finalResponse = await this.model.invoke(followUpHistory);
+      return typeof finalResponse.content === 'string'
+        ? finalResponse.content
+        : JSON.stringify(finalResponse.content);
+    }
+
     return response.content as string;
   }
 
