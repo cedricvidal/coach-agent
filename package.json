@@ -3,22 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "frontend",
-    "backend"
+    "frontend"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=frontend & npm run dev --workspace=backend",
-    "dev:frontend": "npm run dev --workspace=frontend",
-    "dev:backend": "npm run dev --workspace=backend",
-    "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
-    "install:all": "npm install && npm install --workspace=frontend && npm install --workspace=backend"
+    "dev": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=frontend",
+    "install:all": "npm install && npm install --workspace=frontend"
   },
-  "description": "Personal Coach AI Agent - Agentic application with Next.js and LangChain",
+  "description": "Personal Coach AI Agent - Unified Next.js application with integrated API routes",
   "keywords": [
     "ai",
     "coach",
     "agent",
     "langchain",
-    "nextjs"
+    "nextjs",
+    "nextjs-api-routes"
   ]
 }
