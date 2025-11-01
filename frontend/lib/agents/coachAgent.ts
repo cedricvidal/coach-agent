@@ -53,7 +53,7 @@ interface GoalManagementCallbacks {
   listGoals: () => Promise<Goal[]>;
 }
 
-interface ToolCallEvent {
+export interface ToolCallEvent {
   type: 'tool_call';
   data: {
     name: string;
@@ -61,7 +61,7 @@ interface ToolCallEvent {
   };
 }
 
-interface ToolResultEvent {
+export interface ToolResultEvent {
   type: 'tool_result';
   data: {
     name: string;
@@ -69,17 +69,17 @@ interface ToolResultEvent {
   };
 }
 
-interface ContentEvent {
+export interface ContentEvent {
   type: 'content';
   data: string;
 }
 
-interface DoneEvent {
+export interface DoneEvent {
   type: 'done';
   data: Record<string, never>;
 }
 
-type StreamEvent = ToolCallEvent | ToolResultEvent | ContentEvent | DoneEvent;
+export type StreamEvent = ToolCallEvent | ToolResultEvent | ContentEvent | DoneEvent;
 
 export class CoachAgent {
   private model: ChatOpenAI;

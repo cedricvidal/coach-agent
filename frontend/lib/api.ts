@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { StreamEvent } from './agents/coachAgent';
 
 // Since the backend API routes are now part of the same Next.js app,
 // we can use relative URLs (empty baseURL for same-origin requests)
@@ -24,6 +25,64 @@ export const sendMessage = async (message: string, conversationId?: string) => {
   const response = await api.post('/api/chat', { message, conversationId });
   return response.data;
 };
+
+// Streaming chat API - returns an async generator for Server-Sent Events
+export async function* sendMessageStream(
+  message: string,
+  conversationId?: string,
+  token?: string
+): AsyncGenerator<StreamEvent> {
+  const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message, conversationId }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to send message: ${response.statusText}`);
+  }
+
+  if (!response.body) {
+    throw new Error('Response body is null');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+
+      // Keep the last incomplete line in the buffer
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data.trim()) {
+            try {
+              const event = JSON.parse(data) as StreamEvent;
+              yield event;
+            } catch (error) {
+              console.error('Failed to parse SSE event:', error);
+            }
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
 
 export const getConversations = async () => {
   const response = await api.get('/api/chat/conversations');
