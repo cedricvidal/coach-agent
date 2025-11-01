@@ -12,13 +12,9 @@ Vercel
 Database
 Neon
 
-Backend
+Stack
 Use Typescript
 Langchain JS
-
-Webapp
 React
 Next.js
-
-Authentication
 Auth0

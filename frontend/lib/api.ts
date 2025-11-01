@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Since the backend API routes are now part of the same Next.js app,
+// we can use relative URLs (empty baseURL for same-origin requests)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -19,7 +21,7 @@ export const setAuthToken = (token: string) => {
 
 // Chat API
 export const sendMessage = async (message: string, conversationId?: string) => {
-  const response = await api.post('/api/chat/chat', { message, conversationId });
+  const response = await api.post('/api/chat', { message, conversationId });
   return response.data;
 };
 
