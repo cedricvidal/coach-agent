@@ -1,10 +1,8 @@
 import type { Config } from 'drizzle-kit';
-import * as dotenv from 'dotenv';
 
-dotenv.config();
-
+// Next.js automatically loads .env.local, no need for dotenv
 export default {
-  schema: './src/database/schema.ts',
+  schema: './lib/database/schema.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
