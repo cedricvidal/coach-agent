@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { sendMessageStream, getMessages, setAuthToken } from '@/lib/api';
+import { sendMessageStream, getMessages, getConversations, setAuthToken } from '@/lib/api';
 import type { ToolCallEvent } from '@/lib/agents/coachAgent';
 
 interface Message {
@@ -36,6 +36,29 @@ export default function ChatInterface() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load most recent conversation on mount
+  useEffect(() => {
+    async function loadRecentConversation() {
+      try {
+        const token = await getAccessTokenSilently();
+        setAuthToken(token);
+
+        const conversations = await getConversations();
+        if (conversations && conversations.length > 0) {
+          const mostRecent = conversations[0];
+          setConversationId(mostRecent.id);
+
+          const conversationMessages = await getMessages(mostRecent.id);
+          setMessages(conversationMessages);
+        }
+      } catch (error) {
+        console.error('Error loading recent conversation:', error);
+      }
+    }
+
+    loadRecentConversation();
+  }, [getAccessTokenSilently]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
