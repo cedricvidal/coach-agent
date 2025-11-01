@@ -29,9 +29,9 @@ You have access to tools to help users manage their goals:
 - create_goal: Create a new goal with a title, description, and optional target date
 - update_goal: Update an existing goal's title, description, status, or target date
 - add_progress: Record progress on a goal with notes and optional sentiment
-- list_goals: View all active goals (you already see these in context)
+- list_goals: Retrieve and review all the user's goals (use this when they ask "what are my goals?")
 
-Use these tools naturally when users want to create goals, track progress, or update their goals.`;
+Use these tools naturally when users want to create goals, track progress, update their goals, or review what goals they have.`;
 
 interface CoachAgentConfig {
   modelName?: string;
@@ -50,6 +50,7 @@ interface GoalManagementCallbacks {
   createGoal: (title: string, description?: string, targetDate?: string) => Promise<Goal>;
   updateGoal: (goalId: string, updates: { title?: string; description?: string; status?: string; targetDate?: string }) => Promise<Goal>;
   addProgress: (goalId: string, notes: string, sentiment?: string) => Promise<{ success: boolean }>;
+  listGoals: () => Promise<Goal[]>;
 }
 
 export class CoachAgent {
@@ -120,7 +121,17 @@ export class CoachAgent {
       },
     });
 
-    return [createGoalTool, updateGoalTool, addProgressTool];
+    const listGoalsTool = new DynamicStructuredTool({
+      name: 'list_goals',
+      description: 'List all active goals for the user. Use this when the user wants to review their goals or asks what goals they have.',
+      schema: z.object({}),
+      func: async () => {
+        const result = await callbacks.listGoals();
+        return JSON.stringify(result);
+      },
+    });
+
+    return [createGoalTool, updateGoalTool, addProgressTool, listGoalsTool];
   }
 
   async chat(input: string, chatHistory: BaseMessage[] = []): Promise<string> {

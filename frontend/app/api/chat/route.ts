@@ -151,6 +151,13 @@ export async function POST(request: NextRequest) {
         });
         return { success: true };
       },
+      listGoals: async () => {
+        const goals = await db
+          .select()
+          .from(coachingGoals)
+          .where(eq(coachingGoals.userId, user.id));
+        return goals;
+      },
     };
 
     // Get AI response with context and tools
