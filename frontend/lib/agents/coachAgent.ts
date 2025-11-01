@@ -53,6 +53,34 @@ interface GoalManagementCallbacks {
   listGoals: () => Promise<Goal[]>;
 }
 
+interface ToolCallEvent {
+  type: 'tool_call';
+  data: {
+    name: string;
+    args: Record<string, unknown>;
+  };
+}
+
+interface ToolResultEvent {
+  type: 'tool_result';
+  data: {
+    name: string;
+    result: string;
+  };
+}
+
+interface ContentEvent {
+  type: 'content';
+  data: string;
+}
+
+interface DoneEvent {
+  type: 'done';
+  data: Record<string, never>;
+}
+
+type StreamEvent = ToolCallEvent | ToolResultEvent | ContentEvent | DoneEvent;
+
 export class CoachAgent {
   private model: ChatOpenAI;
   private prompt: ChatPromptTemplate;
@@ -208,6 +236,91 @@ export class CoachAgent {
     });
 
     return response.content as string;
+  }
+
+  async *chatWithToolsStream(
+    input: string,
+    chatHistory: BaseMessage[] = [],
+    userContext: { goals?: Goal[]; recentProgress?: Array<{ notes: string }> },
+    callbacks: GoalManagementCallbacks
+  ): AsyncGenerator<StreamEvent> {
+    let enhancedHistory = [...chatHistory];
+
+    // Add context about active goals if available
+    if (userContext?.goals && userContext.goals.length > 0) {
+      const goalsContext = `Active goals:\n${userContext.goals.map((g) => `- [ID: ${g.id}] ${g.title}: ${g.description || 'No description'} (Status: ${g.status || 'active'})`).join('\n')}`;
+      enhancedHistory.unshift(new SystemMessage(goalsContext));
+    }
+
+    // Add recent progress if available
+    if (userContext?.recentProgress && userContext.recentProgress.length > 0) {
+      const progressContext = `Recent progress:\n${userContext.recentProgress.map((p) => `- ${p.notes}`).join('\n')}`;
+      enhancedHistory.unshift(new SystemMessage(progressContext));
+    }
+
+    // Create tools with callbacks that emit events
+    const tools = this.createTools(callbacks);
+
+    // Bind tools to the model using bindTools
+    const modelWithTools = this.model.bindTools(tools);
+
+    // Create chain with tools
+    const chain = RunnableSequence.from([
+      this.prompt,
+      modelWithTools,
+    ]);
+
+    const response = await chain.invoke({
+      input,
+      chat_history: enhancedHistory,
+    });
+
+    // Check if there are tool calls in the response
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      for (const toolCall of response.tool_calls) {
+        // Emit tool call event
+        yield {
+          type: 'tool_call',
+          data: {
+            name: toolCall.name,
+            args: toolCall.args,
+          },
+        };
+
+        // Execute the tool
+        const tool = tools.find(t => t.name === toolCall.name);
+        if (tool) {
+          const result = await tool.func(toolCall.args);
+
+          // Emit tool result event
+          yield {
+            type: 'tool_result',
+            data: {
+              name: toolCall.name,
+              result,
+            },
+          };
+        }
+      }
+    }
+
+    // Emit content
+    if (response.content) {
+      const content = typeof response.content === 'string'
+        ? response.content
+        : JSON.stringify(response.content);
+
+      yield {
+        type: 'content',
+        data: content,
+      };
+    }
+
+    // Emit done
+    yield {
+      type: 'done',
+      data: {},
+    };
   }
 
   convertMessageHistory(messages: Array<{ role: string; content: string }>): BaseMessage[] {
