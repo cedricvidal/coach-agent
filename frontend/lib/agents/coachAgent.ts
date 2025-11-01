@@ -1,7 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
-import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
+import { BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 
@@ -168,7 +168,7 @@ export class CoachAgent {
     userContext: { goals?: Goal[]; recentProgress?: Array<{ notes: string }> },
     callbacks: GoalManagementCallbacks
   ): AsyncGenerator<StreamEvent> {
-    let enhancedHistory = [...chatHistory];
+    const enhancedHistory = [...chatHistory];
 
     // Add context about active goals if available
     if (userContext?.goals && userContext.goals.length > 0) {
@@ -245,8 +245,11 @@ export class CoachAgent {
           content: response.content || '',
           tool_calls: response.tool_calls,
         }),
-        // Add tool results as system messages
-        ...toolMessages.map(tm => new SystemMessage(`Tool ${tm.name} result: ${tm.content}`)),
+        // Add tool results as ToolMessage with proper tool_call_id
+        ...toolMessages.map(tm => new ToolMessage({
+          content: tm.content,
+          tool_call_id: tm.tool_call_id,
+        })),
       ];
 
       const finalResponse = await this.model.invoke(followUpHistory);
