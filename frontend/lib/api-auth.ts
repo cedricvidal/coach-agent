@@ -49,14 +49,12 @@ export async function validateAuth0Token(request: NextRequest) {
 // Check if user has specific permission
 export async function checkPermission(token: string, permission: string): Promise<boolean> {
   try {
-    const response = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    // Decode JWT token to get permissions (they're in the token payload, not userinfo)
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
 
-    if (!response.ok) return false;
-
-    const userInfo = await response.json();
-    const permissions = userInfo.permissions || [];
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    const permissions = payload.permissions || [];
 
     return permissions.includes(permission);
   } catch (error) {
